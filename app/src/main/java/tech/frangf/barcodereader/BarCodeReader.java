@@ -33,36 +33,59 @@ public class BarCodeReader implements Closeable {
     private PreviewView previewView;
     private Activity activity;
     private BarcodeScannerOptions options;
-    private OnSuccessBarCodeReader listener;
+    private OnScanCodeReader listener;
     private ImageAnalysis imageAnalysis;
 
-    interface OnSuccessBarCodeReader {
+    /**
+     * Listener que se ejecuta cuando escanea
+     */
+    interface OnScanCodeReader {
+        /**
+         * Obtienes el código de barras
+         * @param barcode Código de barras leido
+         */
         void onGetBarcode(Barcode barcode);
-        void onErrorBarcode(Exception e);
+        /**
+         * Obtienes la excepción
+         * @param e excepción recibida
+         */
+        void onError(Exception e);
     }
 
-    public BarCodeReader(Activity activity, OnSuccessBarCodeReader listener, PreviewView previewView) {
+    /**
+     * Construye un objeto BarCodeReader que te permite abrir la cámara y escanear códigos de barra y QR.
+     * @param activity activity desde la que abres la cámara.
+     * @param listener OnScanCodeReader que ejecuta void onGetBarcode(Barcode barcode) o void onError(Exception e).
+     * @param previewView Objeto obtenido del Layout que permite la visualizacion de la camara en su interior.
+     */
+    public BarCodeReader(Activity activity, OnScanCodeReader listener, PreviewView previewView) {
         this.activity = activity;
         this.listener = listener;
         this.previewView = previewView;
     }
 
+    /**
+     * Obtiene el requestCode que se pasa al método ActivityCompat.requestPermissions
+     * @return el valor del requestCode
+     */
     public static int getCameraRequestCode() {
         return cameraRequestCode;
     }
 
+    /**
+     * Establece el valor del requestCode pasado al método ActivityCompat.requestPermissions.
+     * Se debe de establece antes de ejecutar checkPermissionsAndStart()
+     * @param cameraRequestCode el nuevo valor para el requestCode
+     */
     public static void setCameraRequestCode(int cameraRequestCode) {
         BarCodeReader.cameraRequestCode = cameraRequestCode;
     }
 
-    public void setPreviewView(PreviewView previewView) {
-        this.previewView = previewView;
-    }
-
-    public void setBarcodeScannerOptions(BarcodeScannerOptions barcodeScannerOptions) {
-        this.options = barcodeScannerOptions;
-    }
-
+    /**
+     * Si no se ha establecido ninguna opción para escanear de la clase Barcode (FORMAT_CODE_128, FORMAT_EAN_8, FORMAT_EAN_13,...)
+     * se establece por defecto FORMAT_ALL_FORMATS.
+     * @return el valor establecido y sino el asignado por defecto.
+     */
     public BarcodeScannerOptions getBarcodeScannerOptions() {
         if (options == null) {
             options = new BarcodeScannerOptions.Builder()
@@ -72,6 +95,17 @@ public class BarCodeReader implements Closeable {
         return options;
     }
 
+    /**
+     * Establece las opciones para escanear, en caso de no hacerlo se utilizará FORMAT_ALL_FORMATS.
+     * @param barcodeScannerOptions
+     */
+    public void setBarcodeScannerOptions(BarcodeScannerOptions barcodeScannerOptions) {
+        this.options = barcodeScannerOptions;
+    }
+
+    /**
+     * Comprueba que tiene permisos para acivar la cámara y la inicia, y en su defecto solicita los permisos al usuario.
+     */
     public void checkPermissionsAndStart() {
         if (isCameraPermissionGranted(activity)) {
             start();
@@ -81,14 +115,23 @@ public class BarCodeReader implements Closeable {
         }
     }
 
-    public void startAnalyzer() {
+    /**
+     * Inicia de nuevo el analizador luego de utilizar el método stopAnalyzer().
+     */
+    public void restartAnalyzer() {
         imageAnalysis.setAnalyzer(getExecutorService(), getAnalyzer());
     }
 
+    /**
+     * Para el analizador.
+     */
     public void stopAnalyzer() {
         imageAnalysis.clearAnalyzer();
     }
 
+    /**
+     * Cierra los flujos y conexiones, y establece los valores de la clase a null.
+     */
     @Override
     public void close() {
         executorService.shutdown();
@@ -101,6 +144,13 @@ public class BarCodeReader implements Closeable {
         options = null;
     }
 
+    /**
+     * Inicia la cámara trasera mostrándose en el objeto PreviewView del Layout,
+     * estableciendo el analizador que se ejecuta en cada frame con sus opciones de escaneo establecidas y en caso
+     * de no establecerlas por defecto analizará todos los tipos de códigos de barras y QR.
+     * El analizador ejecutará el listener OnScanCodeReader.onGetBarcode en caso de procesar adecuadamente el código de barras o QR.
+     * El analizador ejecutará el listener OnScanCodeReader.onError en caso de NO procesar adecuadamente el código de barras o QR.
+     */
     public void start() {
         //Creamos petición asíncrona para solicitar la cámara.
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(activity);
@@ -131,10 +181,19 @@ public class BarCodeReader implements Closeable {
 
     }
 
+    /**
+     * Comprueba si el permiso de la cámara está concedido por el usuario.
+     * @param activity activity para la que se comprueban los permisos
+     * @return devuelve true en caso de tener permisos, false en caso contrario.
+     */
     public static boolean isCameraPermissionGranted(Activity activity) {
         return ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * Establece el analizador que trabajará con cada frame, con las opciones de escaneo definidas o las establecidas por defecto
+     * @return ImageAnalysis.Analyzer utilizado para anlizar cada frame.
+     */
     private ImageAnalysis.Analyzer getAnalyzer() {
         return imageProxy -> {
             //Obtener la imagen que se está mostrándo en la cámara
@@ -156,7 +215,7 @@ public class BarCodeReader implements Closeable {
                     })
                     //Cuando ocurre algún error
                     .addOnFailureListener(e -> {
-                        if (listener != null) listener.onErrorBarcode(e);
+                        if (listener != null) listener.onError(e);
                     })
                     //Cuando se termina se cierran los flujos
                     .addOnCompleteListener((barcodes) -> {
@@ -166,6 +225,10 @@ public class BarCodeReader implements Closeable {
         };
     }
 
+    /**
+     * obtiene un ExecutorService que permite la ejecución del análisis en otro hilo.
+     * @return
+     */
     private ExecutorService getExecutorService() {
         if (executorService == null) {
             executorService = Executors.newSingleThreadExecutor();

@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         btn =findViewById(R.id.btn);
         previewView = findViewById(R.id.previewView);
         final MediaPlayer mediaPlayer = MediaPlayer.create(this,R.raw.beep);
-        BarCodeReader.OnSuccessBarCodeReader listener = new BarCodeReader.OnSuccessBarCodeReader() {
+        BarCodeReader.OnScanCodeReader listener = new BarCodeReader.OnScanCodeReader() {
             @Override
             public void onGetBarcode(Barcode barcode) {
                 Log.d("CAMERAX", barcode.getDisplayValue());
@@ -35,13 +35,13 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onErrorBarcode(Exception e) {
+            public void onError(Exception e) {
                 Log.d("CAMERAX", e.getMessage());
             }
         };
         barCodeReader = new BarCodeReader(this, listener, previewView);
         btn.setOnClickListener(v->{
-            barCodeReader.startAnalyzer();
+            barCodeReader.restartAnalyzer();
         });
         barCodeReader.checkPermissionsAndStart();
     }
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         barCodeReader.close();
+        super.onDestroy();
     }
 }

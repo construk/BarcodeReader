@@ -2,6 +2,7 @@ package tech.frangf.barcodereader;
 
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
@@ -31,6 +32,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("CAMERAX", barcode.getDisplayValue());
                 Toast.makeText(getApplicationContext(),barcode.getDisplayValue(),Toast.LENGTH_SHORT).show();
                 barCodeReader.stopAnalyzer();
+                final Handler handler = new Handler();
+                handler.postDelayed(() -> barCodeReader.restartAnalyzer(), 500);
                 mediaPlayer.start();
             }
 
